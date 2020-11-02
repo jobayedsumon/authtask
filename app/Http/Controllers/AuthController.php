@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use http\Cookie;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\DB;
 
 class AuthController extends Controller
 {
@@ -27,7 +29,27 @@ class AuthController extends Controller
     public function users(Request $request)
     {
         if ($request->cookie('session_id')) {
-            return view('users');
+
+            if ($request->page_no) {
+                $page_no = $request->page_no;
+            } else {
+                $page_no = 1;
+            }
+
+            $limit = $request->limit;
+            $offset = ($page_no - 1) * $limit;
+            $count = User::count();
+            $total_page = ceil($count / $limit);
+
+            $users = DB::table('users')
+                ->offset($offset)
+                ->limit($limit)
+                ->get();
+
+//            $users = User::paginate($limit);
+
+            return view('users', compact('users', 'total_page', 'page_no', 'limit'));
+
         } else {
             return redirect('/login');
         }
@@ -77,6 +99,12 @@ class AuthController extends Controller
             'token_type' => 'bearer',
             'expires_in' => auth()->factory()->getTTL() * 60
         ])->withCookie('session_id', $token);
+    }
+
+    public function logout(Request $request)
+    {
+        $cookie = Cookie::forget('session_id');
+        return response()->json(['msg' => 'Successfully logged out!'], 200)->withCookie($cookie);
     }
 
 }
